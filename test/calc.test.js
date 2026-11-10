@@ -55,4 +55,24 @@ assert.strictEqual(ranked[1].loss, 144);
 assert.ok(calc.pitch("老陈面馆", summary, rec).includes("牛肉面"));
 assert.ok(calc.pitch("老陈面馆", summary, rec).includes("199"));
 
+const soldOutDays = [
+  day("2026-11-01", [line("beef", "牛肉面", 8, 20, 0)]),
+  day("2026-11-02", [line("beef", "牛肉面", 8, 20, 0)]),
+  day("2026-11-03", [line("beef", "牛肉面", 8, 20, 8)]),
+  day("2026-11-04", [line("beef", "牛肉面", 8, 20, 8)]),
+];
+soldOutDays[0].lines[0].soldOut = true;
+soldOutDays[1].lines[0].soldOut = true;
+assert.strictEqual(calc.recommend([beef], soldOutDays), null);
+
+const floored = [
+  day("2026-11-01", [line("beef", "牛肉面", 8, 10, 0)]),
+  day("2026-11-02", [line("beef", "牛肉面", 8, 20, 8)]),
+  day("2026-11-03", [line("beef", "牛肉面", 8, 20, 8)]),
+];
+floored[0].lines[0].soldOut = true;
+const flooredRec = calc.recommend([beef], floored);
+assert.strictEqual(flooredRec.suggest, 12);
+assert.strictEqual(flooredRec.soldOutFloor, 10);
+
 console.log("calc ok");

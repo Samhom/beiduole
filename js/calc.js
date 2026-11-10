@@ -25,6 +25,16 @@
     return Math.min(clampCount(line.wasted), clampCount(line.prepped));
   }
 
+  function isSoldOut(line) {
+    return Boolean(line && line.soldOut) && wastedOf(line) === 0 && clampCount(line.prepped) > 0;
+  }
+
+  function hasSoldOut(days) {
+    return (days || []).some(function (day) {
+      return (day.lines || []).some(isSoldOut);
+    });
+  }
+
   function lineLoss(line) {
     return round2(wastedOf(line) * clampCost(line.cost));
   }
@@ -44,11 +54,16 @@
       let prepped = 0;
       let wasted = 0;
       let used = 0;
+      let soldOutFloor = 0;
       recent.forEach(function (day) {
         const line = (day.lines || []).find(function (item) {
           return item.dishId === dish.id;
         });
         if (!line || clampCount(line.prepped) <= 0) return;
+        if (isSoldOut(line)) {
+          soldOutFloor = Math.max(soldOutFloor, clampCount(line.prepped));
+          return;
+        }
         used += 1;
         prepped += clampCount(line.prepped);
         wasted += wastedOf(line);
@@ -58,7 +73,8 @@
       const avgWaste = wasted / used;
       const avgSold = (prepped - wasted) / used;
       if (wasted / prepped < 0.15 || avgWaste < 1) return;
-      const suggest = Math.max(Math.ceil(avgPrepped * 0.6), Math.round(avgSold));
+      let suggest = Math.max(Math.ceil(avgPrepped * 0.6), Math.round(avgSold));
+      if (soldOutFloor) suggest = Math.max(suggest, soldOutFloor);
       const cut = avgPrepped - suggest;
       if (cut < 1) return;
       const savedPerDay = round2(Math.min(cut, avgWaste) * clampCost(dish.cost));
@@ -71,6 +87,7 @@
         avgPrepped: round2(avgPrepped),
         savedPerDay: savedPerDay,
         cautious: suggest > Math.round(avgSold) + 0.001,
+        soldOutFloor: soldOutFloor,
       };
       if (!best || candidate.savedPerDay > best.savedPerDay) best = candidate;
     });
@@ -121,6 +138,8 @@
     clampCount: clampCount,
     clampCost: clampCost,
     wastedOf: wastedOf,
+    isSoldOut: isSoldOut,
+    hasSoldOut: hasSoldOut,
     lineLoss: lineLoss,
     dayTotal: dayTotal,
     recommend: recommend,

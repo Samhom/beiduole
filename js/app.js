@@ -50,7 +50,7 @@
       h("div", { class: "hero" }, [
         h("p", { class: "kicker" }, formatDate(todayISO()) + " · 今日倒掉"),
         h("p", { class: total > 0 ? "yuan loss" : "yuan ok", id: "hero-num" }, [formatYuan(total), h("small", {}, "元")]),
-        h("p", { class: "sub", id: "hero-sub" }, heroSub(total, top)),
+        h("p", { class: "sub", id: "hero-sub" }, heroSub(total, top, draft)),
       ])
     );
     const list = h("div", { class: "lines card" });
@@ -68,8 +68,15 @@
     wasted.addEventListener("input", function () { applyCount(line.dishId, "wasted", wasted.value); });
     prepped.addEventListener("change", commitCounts);
     wasted.addEventListener("change", commitCounts);
+    const sold = h("input", { type: "checkbox", "aria-label": line.name + "卖光了" });
+    sold.checked = Boolean(line.soldOut);
+    sold.addEventListener("change", function () { setSoldOut(line.dishId, sold.checked); });
     return h("article", { class: "line" }, [
-      h("div", { class: "who" }, [h("h3", {}, line.name), h("p", { class: "cost" }, "每份 " + formatYuan(line.cost) + " 元")]),
+      h("div", { class: "who" }, [
+        h("h3", {}, line.name),
+        h("p", { class: "cost" }, "每份 " + formatYuan(line.cost) + " 元"),
+        h("label", { class: "soldout" }, [sold, "卖光了"]),
+      ]),
       stepper("备了", prepped, function (delta) { bump(line.dishId, "prepped", delta); }, line.prepped <= 0, line.prepped >= 999),
       stepper("倒掉", wasted, function (delta) { bump(line.dishId, "wasted", delta); }, line.wasted <= 0, line.wasted >= line.prepped),
       lossNode,
@@ -91,7 +98,8 @@
     const rec = calc.recommend(state.dishes, state.days);
     const recorded = state.days.filter(dayHasPrep).length;
     if (!rec) {
-      const text = recorded < 2 ? "再记下有备货的一天。只看一天，分不清是菜没人要，还是今天人少。" : "这几天没有哪一道值得少备。损耗按金额算，比例高但很便宜的菜先放着。";
+      let text = recorded < 2 ? "再记下有备货的一天。只看一天，分不清是菜没人要，还是今天人少。" : "这几天没有哪一道值得少备。损耗按金额算，比例高但很便宜的菜先放着。";
+      if (recorded >= 2 && calc.hasSoldOut(state.days)) text += "卖光的日子没有拿来证明该少备。";
       return h("aside", { class: "card advice", id: "advice" }, [h("h2", {}, "明天先不动"), h("p", {}, text)]);
     }
     const caution = rec.cautious
@@ -100,7 +108,7 @@
     return h("aside", { class: "card advice", id: "advice" }, [
       h("p", { class: "kicker" }, "明天只改这一道"),
       h("strong", {}, rec.name + "先备 " + rec.suggest + " 份"),
-      h("p", {}, "近几天平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + caution),
+      h("p", {}, "近几天平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + caution),
     ]);
   }
 
@@ -233,6 +241,7 @@
         cost: dish.cost,
         prepped: found ? found.prepped : 0,
         wasted: found ? Math.min(found.wasted, found.prepped) : 0,
+        soldOut: Boolean(found && found.soldOut && found.wasted === 0 && found.prepped > 0),
       };
     });
   }
@@ -249,6 +258,7 @@
           cost: calc.clampCost(line.cost),
           prepped: prepped,
           wasted: Math.min(calc.clampCount(line.wasted), prepped),
+          soldOut: Boolean(line.soldOut) && Math.min(calc.clampCount(line.wasted), prepped) === 0 && prepped > 0,
         };
       }),
     };
@@ -262,6 +272,7 @@
     const line = lines.find(function (item) { return item.dishId === dishId; });
     line[key] = calc.clampCount(raw);
     if (line.wasted > line.prepped) line.wasted = line.prepped;
+    if (line.wasted > 0 || line.prepped <= 0) line.soldOut = false;
     writeToday(lines);
     const total = calc.dayTotal(lines);
     const hero = document.getElementById("hero-num");
@@ -269,7 +280,7 @@
     hero.className = total > 0 ? "yuan loss" : "yuan ok";
     hero.replaceChildren(document.createTextNode(formatYuan(total)), h("small", {}, "元"));
     const top = lines.slice().sort(function (a, b) { return calc.lineLoss(b) - calc.lineLoss(a); })[0];
-    document.getElementById("hero-sub").textContent = heroSub(total, top);
+    document.getElementById("hero-sub").textContent = heroSub(total, top, lines);
     const row = document.querySelector('[data-dish="' + cssEscape(dishId) + '"]');
     if (row) {
       const loss = calc.lineLoss(line);
@@ -291,6 +302,7 @@
       line.prepped = Math.max(0, next);
       if (line.wasted > line.prepped) line.wasted = line.prepped;
     }
+    if (line.wasted > 0 || line.prepped <= 0) line.soldOut = false;
     writeToday(lines);
     render();
   }
@@ -308,6 +320,16 @@
     const today = state.days.find(function (day) { return day.date === todayISO(); });
     if (today) today.lines = today.lines.filter(function (line) { return line.dishId !== id; });
     save();
+    render();
+  }
+
+  function setSoldOut(dishId, on) {
+    const lines = todayLines();
+    const line = lines.find(function (item) { return item.dishId === dishId; });
+    if (!line || line.prepped <= 0) return;
+    line.soldOut = on;
+    if (on) line.wasted = 0;
+    writeToday(lines);
     render();
   }
 
@@ -377,8 +399,11 @@
     } else button.textContent = "请手动选择这句话";
   }
 
-  function heroSub(total, top) {
-    if (!total) return "倒掉填 0 也可以。没有损耗，今天就不用改备货。";
+  function heroSub(total, top, lines) {
+    if (!total) {
+      if ((lines || []).some(function (line) { return line.soldOut; })) return "卖光不是损耗。卖光的日子，明天先别按没剩来少备。";
+      return "倒掉填 0 也可以。没有损耗，今天就不用改备货。";
+    }
     return top.name + "占了 " + formatYuan(calc.lineLoss(top)) + " 元。先看金额，不看哪道菜的比例更吓人。";
   }
 
