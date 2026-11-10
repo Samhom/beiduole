@@ -100,5 +100,9 @@ const sheet = calc.prepPlan([beef, dish("new", "新品", 3)], monday, "2026-11-1
 assert.strictEqual(sheet[0].buildTo, 12);
 assert.strictEqual(sheet[0].sameWeekday, true);
 assert.strictEqual(sheet[1].buildTo, null);
+assert.deepStrictEqual(calc.splitBatch(12), { first: 9, hold: 3 });
+assert.deepStrictEqual(calc.splitBatch(2), { first: 2, hold: 0 });
+assert.strictEqual(sheet[0].first, 9);
+assert.strictEqual(sheet[0].hold, 3);
 
 console.log("calc ok");

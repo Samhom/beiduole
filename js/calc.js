@@ -118,6 +118,13 @@
     return best;
   }
 
+  function splitBatch(count) {
+    const n = clampCount(count);
+    if (n <= 2) return { first: n, hold: 0 };
+    const first = Math.ceil(n * 0.7);
+    return { first: first, hold: n - first };
+  }
+
   function prepPlan(dishes, days, targetDate) {
     const pool = historyPool(days, targetDate);
     return (dishes || []).map(function (dish) {
@@ -138,7 +145,7 @@
         sold += made - overprepWaste(line);
       });
       if (!used && !soldOutFloor) {
-        return { dishId: dish.id, name: dish.name, buildTo: null, sameWeekday: pool.sameWeekday, weekday: pool.weekday, samples: 0, soldOutFloor: 0 };
+        return { dishId: dish.id, name: dish.name, buildTo: null, first: 0, hold: 0, sameWeekday: pool.sameWeekday, weekday: pool.weekday, samples: 0, soldOutFloor: 0 };
       }
       const avgSold = used ? sold / used : soldOutFloor;
       let buildTo = Math.max(soldOutFloor, Math.round(avgSold));
@@ -146,10 +153,13 @@
         const capped = Math.max(Math.ceil((prepped / used) * 0.6), Math.round(avgSold));
         buildTo = Math.max(soldOutFloor, capped);
       }
+      const batch = splitBatch(buildTo);
       return {
         dishId: dish.id,
         name: dish.name,
         buildTo: buildTo,
+        first: batch.first,
+        hold: batch.hold,
         sameWeekday: pool.sameWeekday,
         weekday: pool.weekday,
         samples: used,
@@ -190,8 +200,9 @@
   function pitch(shopName, summary, rec) {
     if (!summary) return "";
     const who = shopName && shopName !== "我的店" ? shopName + "，" : "";
+    const batch = rec ? splitBatch(rec.suggest) : null;
     const next = rec
-      ? "最该先改的是" + rec.name + "，明天先备 " + rec.suggest + " 份。"
+      ? "最该先改的是" + rec.name + "，明天先下锅 " + batch.first + " 份" + (batch.hold ? "，留 " + batch.hold + " 份等出餐过半。" : "。")
       : "先连续记下几天，才知道该少备哪一道。";
     return who + "这 " + summary.days + " 天倒掉了 " + summary.total.toFixed(2) + " 元。" + next + "按已记录的日均推到 30 天大约 " + summary.month.toFixed(2) + " 元。月费 " + PRICE + " 元，少倒掉其中一小部分就打平。";
   }
@@ -211,6 +222,7 @@
     dayTotal: dayTotal,
     recommend: recommend,
     prepPlan: prepPlan,
+    splitBatch: splitBatch,
     rank: rank,
     projection: projection,
     pitch: pitch,

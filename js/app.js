@@ -114,13 +114,15 @@
       if (recorded >= 2 && calc.hasSoldOut(state.days)) text += "卖光的日子没有拿来证明该少备。";
       return h("aside", { class: "card advice", id: "advice" }, [h("h2", {}, "明天先不动"), h("p", {}, text)]);
     }
+    const batch = calc.splitBatch(rec.suggest);
     const caution = rec.cautious
       ? "大约每天少倒 " + formatYuan(rec.savedPerDay) + " 元。没有一步砍到平均销量，先少这一截，卖得动再降。"
       : "若接下来的销量接近这几天的平均，大约每天少倒 " + formatYuan(rec.savedPerDay) + " 元。先试一天。";
+    const hold = batch.hold ? "留下的 " + batch.hold + " 份先别下锅，出餐过半还在卖再补。" : "";
     return h("aside", { class: "card advice", id: "advice" }, [
       h("p", { class: "kicker" }, "明天只改这一道"),
-      h("strong", {}, rec.name + "先备 " + rec.suggest + " 份"),
-      h("p", {}, (rec.sameWeekday ? "按最近几个星期" + "日一二三四五六"[rec.weekday] + "，不跟别的日子混算。" : "同星期的记录还不够两条，先用最近几天。") + "平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + caution),
+      h("strong", {}, batch.hold ? rec.name + "先下锅 " + batch.first + " 份" : rec.name + "先备 " + rec.suggest + " 份"),
+      h("p", {}, (rec.sameWeekday ? "按最近几个星期" + "日一二三四五六"[rec.weekday] + "，不跟别的日子混算。" : "同星期的记录还不够两条，先用最近几天。") + "平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + hold + caution),
     ]);
   }
 
@@ -131,7 +133,7 @@
     const wrap = h("section", {}, [
       h("p", { class: "kicker" }, formatDate(target) + " · 开市前"),
       h("h1", {}, "明天备到这些份"),
-      h("p", { class: "lede" }, "这张单给后厨照着做。备到的数已经躲开卖光的托底，也没有把做坏和退菜算成卖不动。"),
+      h("p", { class: "lede" }, "这张单给后厨照着做。先做的现在下锅，留下的等出餐过半再补。份数已经躲开卖光的托底，也没有把做坏和退菜算成卖不动。"),
     ]);
     if (state.sample) wrap.append(sampleBanner());
     if (!state.dishes.length) {
@@ -146,7 +148,7 @@
       list.append(h("li", {}, [
         h("span", {}, String(index + 1)),
         h("span", {}, [row.name, h("span", { class: "note" }, " " + basis)]),
-        h("b", {}, row.buildTo == null ? "—" : row.buildTo + " 份"),
+        h("b", {}, row.buildTo == null ? "—" : (row.hold ? "先做 " + row.first + " · 留 " + row.hold : row.buildTo + " 份")),
       ]));
     });
     wrap.append(h("div", { class: "card" }, list));
