@@ -1,7 +1,7 @@
 (function () {
   const calc = window.BEIDUOLE;
   const KEY = "beiduole.v1";
-  const VIEWS = ["close", "menu", "week", "offer"];
+  const VIEWS = ["close", "prep", "menu", "week", "offer"];
   const app = document.getElementById("app");
   const navButtons = document.querySelectorAll("nav [data-view]");
   let state = load();
@@ -23,9 +23,9 @@
     const shop = document.getElementById("shop-label");
     shop.textContent = state.dishes.length ? state.shopName : "打烊算损耗";
     app.replaceChildren();
-    const screen = view === "menu" ? renderMenu() : view === "week" ? renderWeek() : view === "offer" ? renderOffer() : renderClose();
+    const screen = view === "prep" ? renderPrep() : view === "menu" ? renderMenu() : view === "week" ? renderWeek() : view === "offer" ? renderOffer() : renderClose();
     app.append(screen);
-    document.title = { close: "打烊", menu: "菜品", week: "本周", offer: "报价" }[view] + " · 备多了";
+    document.title = { close: "打烊", prep: "备料", menu: "菜品", week: "本周", offer: "报价" }[view] + " · 备多了";
   }
 
   function renderClose() {
@@ -122,6 +122,36 @@
       h("strong", {}, rec.name + "先备 " + rec.suggest + " 份"),
       h("p", {}, (rec.sameWeekday ? "按最近几个星期" + "日一二三四五六"[rec.weekday] + "，不跟别的日子混算。" : "同星期的记录还不够两条，先用最近几天。") + "平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + caution),
     ]);
+  }
+
+  function renderPrep() {
+    const target = shiftISO(1);
+    const plan = calc.prepPlan(state.dishes, state.days, target);
+    const known = plan.filter(function (row) { return row.buildTo != null; });
+    const wrap = h("section", {}, [
+      h("p", { class: "kicker" }, formatDate(target) + " · 开市前"),
+      h("h1", {}, "明天备到这些份"),
+      h("p", { class: "lede" }, "这张单给后厨照着做。备到的数已经躲开卖光的托底，也没有把做坏和退菜算成卖不动。"),
+    ]);
+    if (state.sample) wrap.append(sampleBanner());
+    if (!state.dishes.length) {
+      wrap.append(h("p", {}, "先在菜品里记下会剩的菜。"));
+      return wrap;
+    }
+    const list = h("ol", { class: "rank" });
+    plan.forEach(function (row, index) {
+      const basis = row.buildTo == null
+        ? "还没有销量"
+        : (row.sameWeekday ? "星期" + "日一二三四五六"[row.weekday] : "最近几天") + " · " + row.samples + " 天" + (row.soldOutFloor ? " · 卖光过，不低于 " + row.soldOutFloor + " 份" : "");
+      list.append(h("li", {}, [
+        h("span", {}, String(index + 1)),
+        h("span", {}, [row.name, h("span", { class: "note" }, " " + basis)]),
+        h("b", {}, row.buildTo == null ? "—" : row.buildTo + " 份"),
+      ]));
+    });
+    wrap.append(h("div", { class: "card" }, list));
+    if (!known.length) wrap.append(h("p", { class: "note" }, "打烊记过备了多少之后，这里才会出现份数。"));
+    return wrap;
   }
 
   function renderMenu() {

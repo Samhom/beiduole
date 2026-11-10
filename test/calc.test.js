@@ -96,4 +96,9 @@ ruined[1].lines[0].reason = "returned";
 assert.strictEqual(calc.recommend([beef], ruined), null);
 assert.strictEqual(calc.dayTotal(ruined[0].lines), 64);
 
+const sheet = calc.prepPlan([beef, dish("new", "新品", 3)], monday, "2026-11-16");
+assert.strictEqual(sheet[0].buildTo, 12);
+assert.strictEqual(sheet[0].sameWeekday, true);
+assert.strictEqual(sheet[1].buildTo, null);
+
 console.log("calc ok");

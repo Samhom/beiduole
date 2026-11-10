@@ -118,6 +118,46 @@
     return best;
   }
 
+  function prepPlan(dishes, days, targetDate) {
+    const pool = historyPool(days, targetDate);
+    return (dishes || []).map(function (dish) {
+      let prepped = 0;
+      let sold = 0;
+      let used = 0;
+      let soldOutFloor = 0;
+      pool.rows.forEach(function (day) {
+        const line = (day.lines || []).find(function (item) { return item.dishId === dish.id; });
+        if (!line || clampCount(line.prepped) <= 0) return;
+        if (isSoldOut(line)) {
+          soldOutFloor = Math.max(soldOutFloor, clampCount(line.prepped));
+          return;
+        }
+        const made = clampCount(line.prepped);
+        used += 1;
+        prepped += made;
+        sold += made - overprepWaste(line);
+      });
+      if (!used && !soldOutFloor) {
+        return { dishId: dish.id, name: dish.name, buildTo: null, sameWeekday: pool.sameWeekday, weekday: pool.weekday, samples: 0, soldOutFloor: 0 };
+      }
+      const avgSold = used ? sold / used : soldOutFloor;
+      let buildTo = Math.max(soldOutFloor, Math.round(avgSold));
+      if (used >= 2) {
+        const capped = Math.max(Math.ceil((prepped / used) * 0.6), Math.round(avgSold));
+        buildTo = Math.max(soldOutFloor, capped);
+      }
+      return {
+        dishId: dish.id,
+        name: dish.name,
+        buildTo: buildTo,
+        sameWeekday: pool.sameWeekday,
+        weekday: pool.weekday,
+        samples: used,
+        soldOutFloor: soldOutFloor,
+      };
+    });
+  }
+
   function rank(days) {
     const map = new Map();
     (days || []).forEach(function (day) {
@@ -170,6 +210,7 @@
     lineLoss: lineLoss,
     dayTotal: dayTotal,
     recommend: recommend,
+    prepPlan: prepPlan,
     rank: rank,
     projection: projection,
     pitch: pitch,
