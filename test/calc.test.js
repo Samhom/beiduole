@@ -87,4 +87,13 @@ assert.strictEqual(mondayRec.weekday, 1);
 assert.strictEqual(mondayRec.suggest, 12);
 assert.strictEqual(calc.recommend([beef], monday, "2026-11-19"), null);
 
+const ruined = [
+  day("2026-11-01", [line("beef", "牛肉面", 8, 20, 8)]),
+  day("2026-11-02", [line("beef", "牛肉面", 8, 20, 8)]),
+];
+ruined[0].lines[0].reason = "ruined";
+ruined[1].lines[0].reason = "returned";
+assert.strictEqual(calc.recommend([beef], ruined), null);
+assert.strictEqual(calc.dayTotal(ruined[0].lines), 64);
+
 console.log("calc ok");

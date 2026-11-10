@@ -25,6 +25,11 @@
     return Math.min(clampCount(line.wasted), clampCount(line.prepped));
   }
 
+  function overprepWaste(line) {
+    if (line && line.reason && line.reason !== "over") return 0;
+    return wastedOf(line);
+  }
+
   function isSoldOut(line) {
     return Boolean(line && line.soldOut) && wastedOf(line) === 0 && clampCount(line.prepped) > 0;
   }
@@ -83,7 +88,7 @@
         }
         used += 1;
         prepped += clampCount(line.prepped);
-        wasted += wastedOf(line);
+        wasted += overprepWaste(line);
       });
       if (used < 2 || prepped <= 0) return;
       const avgPrepped = prepped / used;
@@ -158,6 +163,7 @@
     clampCost: clampCost,
     wastedOf: wastedOf,
     isSoldOut: isSoldOut,
+    overprepWaste: overprepWaste,
     hasSoldOut: hasSoldOut,
     weekdayOf: weekdayOf,
     historyPool: historyPool,

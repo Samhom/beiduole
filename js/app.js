@@ -76,11 +76,23 @@
         h("h3", {}, line.name),
         h("p", { class: "cost" }, "每份 " + formatYuan(line.cost) + " 元"),
         h("label", { class: "soldout" }, [sold, "卖光了"]),
+        line.wasted > 0 ? reasonSelect(line) : null,
       ]),
       stepper("备了", prepped, function (delta) { bump(line.dishId, "prepped", delta); }, line.prepped <= 0, line.prepped >= 999),
       stepper("倒掉", wasted, function (delta) { bump(line.dishId, "wasted", delta); }, line.wasted <= 0, line.wasted >= line.prepped),
       lossNode,
     ]);
+  }
+
+  function reasonSelect(line) {
+    const select = h("select", { class: "reason", "aria-label": line.name + "倒掉原因" }, [
+      h("option", { value: "over" }, "做多了"),
+      h("option", { value: "ruined" }, "做坏了"),
+      h("option", { value: "returned" }, "退菜"),
+    ]);
+    select.value = line.reason === "ruined" || line.reason === "returned" ? line.reason : "over";
+    select.addEventListener("change", function () { setReason(line.dishId, select.value); });
+    return select;
   }
 
   function stepper(label, input, onStep, minusDisabled, plusDisabled) {
@@ -242,6 +254,7 @@
         prepped: found ? found.prepped : 0,
         wasted: found ? Math.min(found.wasted, found.prepped) : 0,
         soldOut: Boolean(found && found.soldOut && found.wasted === 0 && found.prepped > 0),
+        reason: found && found.reason === "ruined" || found && found.reason === "returned" ? found.reason : "over",
       };
     });
   }
@@ -259,6 +272,7 @@
           prepped: prepped,
           wasted: Math.min(calc.clampCount(line.wasted), prepped),
           soldOut: Boolean(line.soldOut) && Math.min(calc.clampCount(line.wasted), prepped) === 0 && prepped > 0,
+          reason: Math.min(calc.clampCount(line.wasted), prepped) > 0 && (line.reason === "ruined" || line.reason === "returned") ? line.reason : "over",
         };
       }),
     };
@@ -320,6 +334,15 @@
     const today = state.days.find(function (day) { return day.date === todayISO(); });
     if (today) today.lines = today.lines.filter(function (line) { return line.dishId !== id; });
     save();
+    render();
+  }
+
+  function setReason(dishId, reason) {
+    const lines = todayLines();
+    const line = lines.find(function (item) { return item.dishId === dishId; });
+    if (!line) return;
+    line.reason = reason;
+    writeToday(lines);
     render();
   }
 
