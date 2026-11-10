@@ -45,10 +45,27 @@
     }, 0));
   }
 
-  function recommend(dishes, days) {
-    const recent = (days || []).slice().sort(function (a, b) {
+  function weekdayOf(iso) {
+    const parts = String(iso || "").split("-").map(Number);
+    if (parts.length < 3 || !parts[0]) return null;
+    return new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+  }
+
+  function historyPool(days, targetDate) {
+    const sorted = (days || []).slice().sort(function (a, b) {
       return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
-    }).slice(-7);
+    });
+    if (targetDate) {
+      const want = weekdayOf(targetDate);
+      const same = sorted.filter(function (day) { return weekdayOf(day.date) === want; }).slice(-4);
+      if (same.length >= 2) return { rows: same, sameWeekday: true, weekday: want };
+    }
+    return { rows: sorted.slice(-7), sameWeekday: false, weekday: targetDate ? weekdayOf(targetDate) : null };
+  }
+
+  function recommend(dishes, days, targetDate) {
+    const pool = historyPool(days, targetDate);
+    const recent = pool.rows;
     let best = null;
     (dishes || []).forEach(function (dish) {
       let prepped = 0;
@@ -88,6 +105,8 @@
         savedPerDay: savedPerDay,
         cautious: suggest > Math.round(avgSold) + 0.001,
         soldOutFloor: soldOutFloor,
+        sameWeekday: pool.sameWeekday,
+        weekday: pool.weekday,
       };
       if (!best || candidate.savedPerDay > best.savedPerDay) best = candidate;
     });
@@ -140,6 +159,8 @@
     wastedOf: wastedOf,
     isSoldOut: isSoldOut,
     hasSoldOut: hasSoldOut,
+    weekdayOf: weekdayOf,
+    historyPool: historyPool,
     lineLoss: lineLoss,
     dayTotal: dayTotal,
     recommend: recommend,

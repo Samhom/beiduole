@@ -95,7 +95,7 @@
   }
 
   function adviceCard() {
-    const rec = calc.recommend(state.dishes, state.days);
+    const rec = calc.recommend(state.dishes, state.days, shiftISO(1));
     const recorded = state.days.filter(dayHasPrep).length;
     if (!rec) {
       let text = recorded < 2 ? "再记下有备货的一天。只看一天，分不清是菜没人要，还是今天人少。" : "这几天没有哪一道值得少备。损耗按金额算，比例高但很便宜的菜先放着。";
@@ -108,7 +108,7 @@
     return h("aside", { class: "card advice", id: "advice" }, [
       h("p", { class: "kicker" }, "明天只改这一道"),
       h("strong", {}, rec.name + "先备 " + rec.suggest + " 份"),
-      h("p", {}, "近几天平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + caution),
+      h("p", {}, (rec.sameWeekday ? "按最近几个星期" + "日一二三四五六"[rec.weekday] + "，不跟别的日子混算。" : "同星期的记录还不够两条，先用最近几天。") + "平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + caution),
     ]);
   }
 
@@ -198,7 +198,7 @@
   function renderOffer() {
     const recorded = state.days.filter(dayHasPrep);
     const summary = calc.projection(recorded);
-    const rec = calc.recommend(state.dishes, recorded);
+    const rec = calc.recommend(state.dishes, recorded, shiftISO(1));
     const sentence = calc.pitch(state.shopName, summary, rec) || "先看一家面馆的账，或记下自己的菜。有了天数和金额，这里会生成能直接说给店主听的一句。";
     const cover = summary && summary.month > 0 ? "按现在的日均，少倒掉大约 " + trimNum(calc.round2(calc.PRICE / summary.month * 100)) + "% 就覆盖月费。" : "有了日均损耗，才能把月费和倒掉的钱放在一起比。";
     const quote = h("p", { class: "quote", id: "pitch" }, sentence);
@@ -357,7 +357,7 @@
       ],
       days: [],
     };
-    for (let offset = -5; offset <= 0; offset += 1) {
+    for (let offset = -20; offset <= 0; offset += 1) {
       const date = shiftISO(offset);
       const extra = offset === 0 ? 0 : (offset + 6) % 3;
       state.days.push({

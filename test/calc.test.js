@@ -75,4 +75,16 @@ const flooredRec = calc.recommend([beef], floored);
 assert.strictEqual(flooredRec.suggest, 12);
 assert.strictEqual(flooredRec.soldOutFloor, 10);
 
+const monday = [
+  day("2026-11-02", [line("beef", "牛肉面", 8, 20, 8)]),
+  day("2026-11-09", [line("beef", "牛肉面", 8, 20, 8)]),
+  day("2026-11-05", [line("beef", "牛肉面", 8, 20, 0)]),
+  day("2026-11-12", [line("beef", "牛肉面", 8, 20, 0)]),
+];
+const mondayRec = calc.recommend([beef], monday, "2026-11-16");
+assert.strictEqual(mondayRec.sameWeekday, true);
+assert.strictEqual(mondayRec.weekday, 1);
+assert.strictEqual(mondayRec.suggest, 12);
+assert.strictEqual(calc.recommend([beef], monday, "2026-11-19"), null);
+
 console.log("calc ok");
