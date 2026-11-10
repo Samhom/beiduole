@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>备多了</title>
+  <meta name="description" content="打烊时把多备的菜算成钱，指出明天少备哪一道最划算。">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <a class="skip" href="#app">跳到账本</a>
+  <header class="top">
+    <a class="brand" href="#close">
+      <span class="brand-mark" aria-hidden="true">¥</span>
+      <span>
+        <strong>备多了</strong>
+        <small id="shop-label">打烊算损耗</small>
+      </span>
+    </a>
+    <nav aria-label="页面">
+      <button type="button" data-view="close">打烊</button>
+      <button type="button" data-view="menu">菜品</button>
+      <button type="button" data-view="week">本周</button>
+      <button type="button" data-view="offer">报价</button>
+    </nav>
+  </header>
+  <main id="app" tabindex="-1"></main>
+  <script src="js/calc.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
