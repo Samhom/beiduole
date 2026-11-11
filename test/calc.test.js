@@ -111,5 +111,8 @@ const coverDays = [day("2026-11-02", []), day("2026-11-09", [])];
 coverDays[0].covers = 40;
 coverDays[1].covers = 20;
 assert.strictEqual(calc.averageCovers(coverDays, "2026-11-16").avg, 30);
+assert.strictEqual(calc.halfwayCall(40, 20).fireHold, false);
+assert.strictEqual(calc.halfwayCall(40, 28).fireHold, true);
+assert.strictEqual(calc.halfwayCall(0, 10), null);
 
 console.log("calc ok");

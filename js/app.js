@@ -55,8 +55,35 @@
     );
     const list = h("div", { class: "lines card" });
     draft.forEach(function (line) { list.append(lineRow(line)); });
-    wrap.append(list, coversCard(total), adviceCard());
+    wrap.append(list, coversCard(total), halfwayCard(), adviceCard());
     return wrap;
+  }
+
+  function setService(key, raw) {
+    const date = todayISO();
+    if (!state.service || state.service.date !== date) state.service = { date: date, expected: 0, now: 0, counted: false };
+    state.service[key] = calc.clampCount(raw);
+    if (key === "now") state.service.counted = true;
+    save();
+    render();
+  }
+
+  function halfwayCard() {
+    const date = todayISO();
+    const service = state.service && state.service.date === date ? state.service : { expected: 0, now: 0, counted: false };
+    const call = service.expected && service.counted ? calc.halfwayCall(service.expected, service.now) : null;
+    const expected = h("input", { class: "num", type: "text", inputmode: "numeric", "aria-label": "今天预计几位", value: service.expected ? String(service.expected) : "" });
+    const now = h("input", { class: "num", type: "text", inputmode: "numeric", "aria-label": "现在店里几位", value: service.counted ? String(service.now) : "" });
+    expected.addEventListener("change", function () { setService("expected", expected.value); });
+    now.addEventListener("change", function () { setService("now", now.value); });
+    let verdict = "出餐过半时看一眼人数。不到开市前预计的七成，留下的那锅先别下。";
+    if (call && call.behind) verdict = "现在只有预计的 " + Math.round(call.ratio * 100) + "%。留下的份先别下锅，人来了再补。";
+    if (call && call.fireHold) verdict = "人已经到了预计的七成。留下的份可以下锅。";
+    return h("aside", { class: "card" }, [
+      h("h2", {}, "出餐过半"),
+      h("div", { class: "add-row" }, [expected, h("span", {}, "位预计"), now, h("span", {}, "位已到")]),
+      h("p", { class: "note" }, verdict),
+    ]);
   }
 
   function coversCard(total) {
@@ -530,6 +557,15 @@
       if (!data || data.version !== 1 || !Array.isArray(data.dishes) || !Array.isArray(data.days)) return blank();
       data.sample = Boolean(data.sample);
       data.expectedCovers = calc.clampCount(data.expectedCovers);
+      if (!data.service || data.service.date !== todayISO()) data.service = null;
+      else {
+        data.service = {
+          date: data.service.date,
+          expected: calc.clampCount(data.service.expected),
+          now: calc.clampCount(data.service.now),
+          counted: Boolean(data.service.counted),
+        };
+      }
       data.shopName = String(data.shopName || "我的店").slice(0, 24);
       data.dishes = data.dishes.filter(function (dish) {
         return dish && dish.id && dish.name;

@@ -205,6 +205,20 @@
     return Math.max(floor || 0, Math.min(999, scaled));
   }
 
+  function halfwayCall(expected, now) {
+    const planned = clampCount(expected);
+    if (!planned) return null;
+    const seated = clampCount(now);
+    const ratio = seated / planned;
+    return {
+      expected: planned,
+      now: seated,
+      ratio: round2(ratio),
+      behind: ratio < 0.7,
+      fireHold: ratio >= 0.7,
+    };
+  }
+
   function projection(days) {
     const list = days || [];
     if (!list.length) return null;
@@ -239,6 +253,7 @@
     coversOf: coversOf,
     averageCovers: averageCovers,
     scaleToCovers: scaleToCovers,
+    halfwayCall: halfwayCall,
     lineLoss: lineLoss,
     dayTotal: dayTotal,
     recommend: recommend,
