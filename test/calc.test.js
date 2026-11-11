@@ -114,5 +114,11 @@ assert.strictEqual(calc.averageCovers(coverDays, "2026-11-16").avg, 30);
 assert.strictEqual(calc.halfwayCall(40, 20).fireHold, false);
 assert.strictEqual(calc.halfwayCall(40, 28).fireHold, true);
 assert.strictEqual(calc.halfwayCall(0, 10), null);
+const kept = { prepped: 20, wasted: 6, cost: 8, reason: "over", kept: 4 };
+assert.strictEqual(calc.lineLoss(kept), 16);
+assert.strictEqual(calc.overprepWaste(kept), 6);
+const unsafe = { prepped: 20, wasted: 6, cost: 8, reason: "ruined", kept: 4 };
+assert.strictEqual(calc.keptOf(unsafe), 0);
+assert.strictEqual(calc.lineLoss(unsafe), 48);
 
 console.log("calc ok");

@@ -30,6 +30,15 @@
     return wastedOf(line);
   }
 
+  function keptOf(line) {
+    if (!line || (line.reason && line.reason !== "over")) return 0;
+    return Math.min(clampCount(line.kept), wastedOf(line));
+  }
+
+  function thrownOf(line) {
+    return wastedOf(line) - keptOf(line);
+  }
+
   function isSoldOut(line) {
     return Boolean(line && line.soldOut) && wastedOf(line) === 0 && clampCount(line.prepped) > 0;
   }
@@ -41,7 +50,7 @@
   }
 
   function lineLoss(line) {
-    return round2(wastedOf(line) * clampCost(line.cost));
+    return round2(thrownOf(line) * clampCost(line.cost));
   }
 
   function dayTotal(lines) {
@@ -247,6 +256,8 @@
     wastedOf: wastedOf,
     isSoldOut: isSoldOut,
     overprepWaste: overprepWaste,
+    keptOf: keptOf,
+    thrownOf: thrownOf,
     hasSoldOut: hasSoldOut,
     weekdayOf: weekdayOf,
     historyPool: historyPool,
