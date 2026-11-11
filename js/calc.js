@@ -138,6 +138,12 @@
     return { first: first, hold: n - first };
   }
 
+  function shouldPause(prepped, wasted, used, soldOutFloor) {
+    if (soldOutFloor) return false;
+    if (used < 2 || prepped <= 0) return false;
+    return wasted / prepped >= 0.45;
+  }
+
   function prepPlan(dishes, days, targetDate) {
     const pool = historyPool(days, targetDate);
     return (dishes || []).map(function (dish) {
@@ -158,7 +164,22 @@
         sold += made - overprepWaste(line);
       });
       if (!used && !soldOutFloor) {
-        return { dishId: dish.id, name: dish.name, buildTo: null, first: 0, hold: 0, sameWeekday: pool.sameWeekday, weekday: pool.weekday, samples: 0, soldOutFloor: 0 };
+        return { dishId: dish.id, name: dish.name, buildTo: null, first: 0, hold: 0, pause: false, sameWeekday: pool.sameWeekday, weekday: pool.weekday, samples: 0, soldOutFloor: 0 };
+      }
+      const over = prepped - sold;
+      if (shouldPause(prepped, over, used, soldOutFloor)) {
+        return {
+          dishId: dish.id,
+          name: dish.name,
+          buildTo: 0,
+          first: 0,
+          hold: 0,
+          pause: true,
+          sameWeekday: pool.sameWeekday,
+          weekday: pool.weekday,
+          samples: used,
+          soldOutFloor: 0,
+        };
       }
       const avgSold = used ? sold / used : soldOutFloor;
       let buildTo = Math.max(soldOutFloor, Math.round(avgSold));
@@ -177,6 +198,7 @@
         weekday: pool.weekday,
         samples: used,
         soldOutFloor: soldOutFloor,
+        pause: false,
       };
     });
   }
@@ -274,6 +296,7 @@
     dayTotal: dayTotal,
     recommend: recommend,
     prepPlan: prepPlan,
+    shouldPause: shouldPause,
     splitBatch: splitBatch,
     rank: rank,
     projection: projection,

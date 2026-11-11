@@ -171,6 +171,14 @@
       return h("aside", { class: "card advice", id: "advice" }, [h("h2", {}, "明天先不动"), h("p", {}, text)]);
     }
     const batch = calc.splitBatch(rec.suggest);
+    const tomorrow = calc.prepPlan(state.dishes, state.days, shiftISO(1)).find(function (row) { return row.dishId === rec.dishId; });
+    if (tomorrow && tomorrow.pause) {
+      return h("aside", { class: "card advice", id: "advice" }, [
+        h("p", { class: "kicker" }, "明天只改这一道"),
+        h("strong", {}, rec.name + "明天先不上"),
+        h("p", {}, "同一个星期几，做多了倒掉的份数将近一半。少备已经不够，先从菜单拿下来。卖光过的日子不会这样处理。"),
+      ]);
+    }
     const caution = rec.cautious
       ? "大约每天少倒 " + formatYuan(rec.savedPerDay) + " 元。没有一步砍到平均销量，先少这一截，卖得动再降。"
       : "若接下来的销量接近这几天的平均，大约每天少倒 " + formatYuan(rec.savedPerDay) + " 元。先试一天。";
@@ -220,13 +228,15 @@
     plan.forEach(function (row, index) {
       const dish = state.dishes.find(function (item) { return item.id === row.dishId; });
       const half = halfTalk(dish);
-      const basis = row.buildTo == null
+      const basis = row.pause
+        ? "同星期做多了将近一半。先从菜单拿下来，卖光过的日子不会走到这一步。"
+        : row.buildTo == null
         ? "还没有销量"
         : (row.sameWeekday ? "星期" + "日一二三四五六"[row.weekday] : "最近几天") + " · " + row.samples + " 天" + (row.soldOutFloor ? " · 卖光过，不低于 " + row.soldOutFloor + " 份" : "") + (row.coversScaled ? " · 已按明天人数调整" : "") + (half ? " · " + half : "");
       list.append(h("li", {}, [
         h("span", {}, String(index + 1)),
         h("span", {}, [row.name, h("span", { class: "note" }, " " + basis)]),
-        h("b", {}, row.buildTo == null ? "—" : (row.hold ? "先做 " + row.first + " · 留 " + row.hold : row.buildTo + " 份")),
+        h("b", {}, row.pause ? "明天先不上" : row.buildTo == null ? "—" : (row.hold ? "先做 " + row.first + " · 留 " + row.hold : row.buildTo + " 份")),
       ]));
     });
     wrap.append(h("div", { class: "card" }, list));

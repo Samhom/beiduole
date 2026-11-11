@@ -104,6 +104,16 @@ assert.deepStrictEqual(calc.splitBatch(12), { first: 9, hold: 3 });
 assert.deepStrictEqual(calc.splitBatch(2), { first: 2, hold: 0 });
 assert.strictEqual(sheet[0].first, 9);
 assert.strictEqual(sheet[0].hold, 3);
+assert.strictEqual(sheet[0].pause, false);
+const chronic = [
+  day("2026-11-02", [line("beef", "牛肉面", 8, 20, 12)]),
+  day("2026-11-09", [line("beef", "牛肉面", 8, 20, 12)]),
+];
+const paused = calc.prepPlan([beef], chronic, "2026-11-16");
+assert.strictEqual(paused[0].pause, true);
+assert.strictEqual(paused[0].buildTo, 0);
+assert.strictEqual(calc.shouldPause(40, 12, 2, 0), false);
+assert.strictEqual(calc.shouldPause(40, 24, 2, 10), false);
 
 assert.strictEqual(calc.scaleToCovers(12, 0, 40, 20), 6);
 assert.strictEqual(calc.scaleToCovers(12, 10, 40, 20), 10);
