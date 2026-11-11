@@ -232,7 +232,7 @@ h2 { font-size: 1.25rem; }
 .price strong { font-size: 2.4rem; font-variant-numeric: tabular-nums; letter-spacing: -0.04em; }
 .price strong small { font-size: 1rem; margin-left: 0.2rem; }
 
-.menu-row, .add-row { display: flex; gap: 0.45rem; align-items: center; margin: 0.45rem 0; }
+.menu-row, .add-row { display: flex; gap: 0.45rem; align-items: center; margin: 0.45rem 0; flex-wrap: wrap; }
 .menu-row input[type="text"], .add-row input[type="text"], .shop input { flex: 1; }
 .num { width: 6.5rem; font-variant-numeric: tabular-nums; }
 

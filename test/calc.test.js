@@ -120,5 +120,7 @@ assert.strictEqual(calc.overprepWaste(kept), 6);
 const unsafe = { prepped: 20, wasted: 6, cost: 8, reason: "ruined", kept: 4 };
 assert.strictEqual(calc.keptOf(unsafe), 0);
 assert.strictEqual(calc.lineLoss(unsafe), 48);
+assert.strictEqual(calc.halfPrice(8), 5.6);
+assert.strictEqual(calc.halfPrice(0), 0);
 
 console.log("calc ok");

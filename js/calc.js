@@ -21,6 +21,10 @@
     return round2(Math.min(99999, value));
   }
 
+  function halfPrice(cost) {
+    return round2(clampCost(cost) * 0.7);
+  }
+
   function wastedOf(line) {
     return Math.min(clampCount(line.wasted), clampCount(line.prepped));
   }
@@ -253,6 +257,7 @@
     round2: round2,
     clampCount: clampCount,
     clampCost: clampCost,
+    halfPrice: halfPrice,
     wastedOf: wastedOf,
     isSoldOut: isSoldOut,
     overprepWaste: overprepWaste,

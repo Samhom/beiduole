@@ -157,6 +157,11 @@
     ]);
   }
 
+  function halfTalk(dish) {
+    if (!dish || !dish.half) return "";
+    return "可以点半份，半份 " + formatYuan(calc.halfPrice(dish.cost)) + " 元，按全份的七成。";
+  }
+
   function adviceCard() {
     const rec = calc.recommend(state.dishes, state.days, shiftISO(1));
     const recorded = state.days.filter(dayHasPrep).length;
@@ -170,10 +175,12 @@
       ? "大约每天少倒 " + formatYuan(rec.savedPerDay) + " 元。没有一步砍到平均销量，先少这一截，卖得动再降。"
       : "若接下来的销量接近这几天的平均，大约每天少倒 " + formatYuan(rec.savedPerDay) + " 元。先试一天。";
     const hold = batch.hold ? "留下的 " + batch.hold + " 份先别下锅，出餐过半还在卖再补。" : "";
+    const dish = state.dishes.find(function (item) { return item.id === rec.dishId; });
+    const half = halfTalk(dish);
     return h("aside", { class: "card advice", id: "advice" }, [
       h("p", { class: "kicker" }, "明天只改这一道"),
       h("strong", {}, batch.hold ? rec.name + "先下锅 " + batch.first + " 份" : rec.name + "先备 " + rec.suggest + " 份"),
-      h("p", {}, (rec.sameWeekday ? "按最近几个星期" + "日一二三四五六"[rec.weekday] + "，不跟别的日子混算。" : "同星期的记录还不够两条，先用最近几天。") + "平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + hold + caution),
+      h("p", {}, (rec.sameWeekday ? "按最近几个星期" + "日一二三四五六"[rec.weekday] + "，不跟别的日子混算。" : "同星期的记录还不够两条，先用最近几天。") + "平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + hold + caution + (half ? half : "")),
     ]);
   }
 
@@ -211,9 +218,11 @@
     }
     const list = h("ol", { class: "rank" });
     plan.forEach(function (row, index) {
+      const dish = state.dishes.find(function (item) { return item.id === row.dishId; });
+      const half = halfTalk(dish);
       const basis = row.buildTo == null
         ? "还没有销量"
-        : (row.sameWeekday ? "星期" + "日一二三四五六"[row.weekday] : "最近几天") + " · " + row.samples + " 天" + (row.soldOutFloor ? " · 卖光过，不低于 " + row.soldOutFloor + " 份" : "") + (row.coversScaled ? " · 已按明天人数调整" : "");
+        : (row.sameWeekday ? "星期" + "日一二三四五六"[row.weekday] : "最近几天") + " · " + row.samples + " 天" + (row.soldOutFloor ? " · 卖光过，不低于 " + row.soldOutFloor + " 份" : "") + (row.coversScaled ? " · 已按明天人数调整" : "") + (half ? " · " + half : "");
       list.append(h("li", {}, [
         h("span", {}, String(index + 1)),
         h("span", {}, [row.name, h("span", { class: "note" }, " " + basis)]),
@@ -254,10 +263,18 @@
         save();
         render();
       });
+      const half = h("input", { type: "checkbox", "aria-label": dish.name + "有半份" });
+      half.checked = Boolean(dish.half);
+      half.addEventListener("change", function () {
+        dish.half = half.checked;
+        save();
+        render();
+      });
       wrap.append(h("div", { class: "menu-row" }, [
         name,
         cost,
         h("span", {}, "元/份"),
+        h("label", { class: "soldout" }, [half, "有半份"]),
         h("button", { class: "btn-quiet", type: "button", onclick: function () { removeDish(dish.id); } }, "移除"),
       ]));
     });
@@ -269,7 +286,7 @@
         addCost,
         h("button", { class: "btn", type: "button", onclick: function () { addDish(addName.value, addCost.value); } }, "加上"),
       ]),
-      h("p", { class: "note" }, state.dishes.length >= 30 ? "三十道够用了。把不剩的先拿掉。" : "改成本只影响今天和以后。已经记下的日子仍按当时的成本。")
+      h("p", { class: "note" }, state.dishes.length >= 30 ? "三十道够用了。把不剩的先拿掉。" : "改成本只影响今天和以后。勾了半份，前厅按全份七成报价，备货份数不因此加一倍。")
     );
     return wrap;
   }
@@ -504,7 +521,7 @@
       dishes: [
         { id: beef, name: "牛肉面", cost: 8 },
         { id: egg, name: "卤蛋", cost: 1.5 },
-        { id: cucumber, name: "拍黄瓜", cost: 2 },
+        { id: cucumber, name: "拍黄瓜", cost: 2, half: true },
       ],
       days: [],
     };
@@ -591,6 +608,7 @@
       data.dishes.forEach(function (dish) {
         dish.name = String(dish.name).slice(0, 24);
         dish.cost = calc.clampCost(dish.cost);
+        dish.half = Boolean(dish.half);
       });
       return data;
     } catch (error) {
