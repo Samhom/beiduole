@@ -105,4 +105,11 @@ assert.deepStrictEqual(calc.splitBatch(2), { first: 2, hold: 0 });
 assert.strictEqual(sheet[0].first, 9);
 assert.strictEqual(sheet[0].hold, 3);
 
+assert.strictEqual(calc.scaleToCovers(12, 0, 40, 20), 6);
+assert.strictEqual(calc.scaleToCovers(12, 10, 40, 20), 10);
+const coverDays = [day("2026-11-02", []), day("2026-11-09", [])];
+coverDays[0].covers = 40;
+coverDays[1].covers = 20;
+assert.strictEqual(calc.averageCovers(coverDays, "2026-11-16").avg, 30);
+
 console.log("calc ok");

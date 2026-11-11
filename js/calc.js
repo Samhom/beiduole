@@ -187,6 +187,24 @@
     });
   }
 
+  function coversOf(day) {
+    return clampCount(day && day.covers);
+  }
+
+  function averageCovers(days, targetDate) {
+    const pool = historyPool(days, targetDate);
+    const nums = pool.rows.map(coversOf).filter(function (count) { return count > 0; });
+    if (!nums.length) return null;
+    const avg = nums.reduce(function (sum, count) { return sum + count; }, 0) / nums.length;
+    return { avg: round2(avg), samples: nums.length, sameWeekday: pool.sameWeekday };
+  }
+
+  function scaleToCovers(count, floor, avg, expected) {
+    if (count == null || !avg || !expected) return count;
+    const scaled = Math.round(count * (expected / avg));
+    return Math.max(floor || 0, Math.min(999, scaled));
+  }
+
   function projection(days) {
     const list = days || [];
     if (!list.length) return null;
@@ -218,6 +236,9 @@
     hasSoldOut: hasSoldOut,
     weekdayOf: weekdayOf,
     historyPool: historyPool,
+    coversOf: coversOf,
+    averageCovers: averageCovers,
+    scaleToCovers: scaleToCovers,
     lineLoss: lineLoss,
     dayTotal: dayTotal,
     recommend: recommend,
