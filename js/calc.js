@@ -80,20 +80,35 @@
     return Boolean(day && day.outlier);
   }
 
-  function historyPool(days, targetDate) {
+  function serviceOf(day) {
+    if (day && (day.service === "lunch" || day.service === "dinner")) return day.service;
+    return "";
+  }
+
+  function historyPool(days, targetDate, service) {
     const sorted = (days || []).filter(function (day) { return !isOutlier(day); }).slice().sort(function (a, b) {
       return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
     });
+    const wantService = service === "lunch" || service === "dinner" ? service : "";
+    let scoped = sorted;
+    let sameService = false;
+    if (wantService) {
+      const matched = sorted.filter(function (day) { return serviceOf(day) === wantService; });
+      if (matched.length >= 2) {
+        scoped = matched;
+        sameService = true;
+      }
+    }
     if (targetDate) {
       const want = weekdayOf(targetDate);
-      const same = sorted.filter(function (day) { return weekdayOf(day.date) === want; }).slice(-4);
-      if (same.length >= 2) return { rows: same, sameWeekday: true, weekday: want };
+      const same = scoped.filter(function (day) { return weekdayOf(day.date) === want; }).slice(-4);
+      if (same.length >= 2) return { rows: same, sameWeekday: true, weekday: want, sameService: sameService, service: wantService };
     }
-    return { rows: sorted.slice(-7), sameWeekday: false, weekday: targetDate ? weekdayOf(targetDate) : null };
+    return { rows: scoped.slice(-7), sameWeekday: false, weekday: targetDate ? weekdayOf(targetDate) : null, sameService: sameService, service: wantService };
   }
 
-  function recommend(dishes, days, targetDate) {
-    const pool = historyPool(days, targetDate);
+  function recommend(dishes, days, targetDate, service) {
+    const pool = historyPool(days, targetDate, service);
     const recent = pool.rows;
     let best = null;
     (dishes || []).forEach(function (dish) {
@@ -136,6 +151,8 @@
         soldOutFloor: soldOutFloor,
         sameWeekday: pool.sameWeekday,
         weekday: pool.weekday,
+        sameService: pool.sameService,
+        service: pool.service,
       };
       if (!best || candidate.savedPerDay > best.savedPerDay) best = candidate;
     });
@@ -155,8 +172,8 @@
     return wasted / prepped >= 0.45;
   }
 
-  function prepPlan(dishes, days, targetDate) {
-    const pool = historyPool(days, targetDate);
+  function prepPlan(dishes, days, targetDate, service) {
+    const pool = historyPool(days, targetDate, service);
     return (dishes || []).map(function (dish) {
       let prepped = 0;
       let sold = 0;
@@ -180,7 +197,7 @@
         sold += made - overprepWaste(line);
       });
       if (!used && !soldOutFloor) {
-        return { dishId: dish.id, name: dish.name, buildTo: null, first: 0, hold: 0, pause: false, sameWeekday: pool.sameWeekday, weekday: pool.weekday, samples: 0, soldOutFloor: 0, soldOutEarly: false };
+        return { dishId: dish.id, name: dish.name, buildTo: null, first: 0, hold: 0, pause: false, sameWeekday: pool.sameWeekday, weekday: pool.weekday, sameService: pool.sameService, service: pool.service, samples: 0, soldOutFloor: 0, soldOutEarly: false };
       }
       const over = prepped - sold;
       if (shouldPause(prepped, over, used, soldOutFloor)) {
@@ -193,6 +210,8 @@
           pause: true,
           sameWeekday: pool.sameWeekday,
           weekday: pool.weekday,
+          sameService: pool.sameService,
+          service: pool.service,
           samples: used,
           soldOutFloor: 0,
           soldOutEarly: false,
@@ -213,6 +232,8 @@
         hold: batch.hold,
         sameWeekday: pool.sameWeekday,
         weekday: pool.weekday,
+        sameService: pool.sameService,
+        service: pool.service,
         samples: used,
         soldOutFloor: soldOutFloor,
         soldOutEarly: soldOutEarly,
@@ -244,8 +265,8 @@
     return clampCount(day && day.covers);
   }
 
-  function averageCovers(days, targetDate) {
-    const pool = historyPool(days, targetDate);
+  function averageCovers(days, targetDate, service) {
+    const pool = historyPool(days, targetDate, service);
     const nums = pool.rows.map(coversOf).filter(function (count) { return count > 0; });
     if (!nums.length) return null;
     const avg = nums.reduce(function (sum, count) { return sum + count; }, 0) / nums.length;
@@ -307,6 +328,7 @@
     hasSoldOut: hasSoldOut,
     weekdayOf: weekdayOf,
     isOutlier: isOutlier,
+    serviceOf: serviceOf,
     historyPool: historyPool,
     coversOf: coversOf,
     averageCovers: averageCovers,

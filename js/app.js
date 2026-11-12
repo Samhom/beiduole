@@ -55,7 +55,7 @@
     );
     const list = h("div", { class: "lines card" });
     draft.forEach(function (line) { list.append(lineRow(line)); });
-    wrap.append(list, coversCard(total), outlierCard(), halfwayCard(), adviceCard());
+    wrap.append(list, serviceCard(), coversCard(total), outlierCard(), halfwayCard(), adviceCard());
     return wrap;
   }
 
@@ -83,6 +83,33 @@
       h("h2", {}, "出餐过半"),
       h("div", { class: "add-row" }, [expected, h("span", {}, "位预计"), now, h("span", {}, "位已到")]),
       h("p", { class: "note" }, verdict),
+    ]);
+  }
+
+  function todayService() {
+    const saved = state.days.find(function (day) { return day.date === todayISO(); });
+    return calc.serviceOf(saved);
+  }
+
+  function serviceLabel(name) {
+    if (name === "lunch") return "午市";
+    if (name === "dinner") return "晚市";
+    return "全天";
+  }
+
+  function serviceCard() {
+    const current = todayService();
+    const select = h("select", { class: "reason", "aria-label": "今天是哪一市" }, [
+      h("option", { value: "" }, "全天"),
+      h("option", { value: "lunch" }, "午市"),
+      h("option", { value: "dinner" }, "晚市"),
+    ]);
+    select.value = current;
+    select.addEventListener("change", function () { setDayService(select.value); });
+    return h("aside", { class: "card" }, [
+      h("h2", {}, "今天是哪一市"),
+      select,
+      h("p", { class: "note" }, "午市和晚市分开估。这一市还不够两条时，才暂时和另一市放在一起。"),
     ]);
   }
 
@@ -182,7 +209,7 @@
   }
 
   function adviceCard() {
-    const rec = calc.recommend(state.dishes, state.days, shiftISO(1));
+    const rec = calc.recommend(state.dishes, state.days, shiftISO(1), todayService());
     const recorded = state.days.filter(dayHasPrep).length;
     if (!rec) {
       let text = recorded < 2 ? "再记下有备货的一天。只看一天，分不清是菜没人要，还是今天人少。" : "这几天没有哪一道值得少备。损耗按金额算，比例高但很便宜的菜先放着。";
@@ -190,7 +217,7 @@
       return h("aside", { class: "card advice", id: "advice" }, [h("h2", {}, "明天先不动"), h("p", {}, text)]);
     }
     const batch = calc.splitBatch(rec.suggest);
-    const tomorrow = calc.prepPlan(state.dishes, state.days, shiftISO(1)).find(function (row) { return row.dishId === rec.dishId; });
+    const tomorrow = calc.prepPlan(state.dishes, state.days, shiftISO(1), todayService()).find(function (row) { return row.dishId === rec.dishId; });
     if (tomorrow && tomorrow.pause) {
       return h("aside", { class: "card advice", id: "advice" }, [
         h("p", { class: "kicker" }, "明天只改这一道"),
@@ -207,15 +234,16 @@
     return h("aside", { class: "card advice", id: "advice" }, [
       h("p", { class: "kicker" }, "明天只改这一道"),
       h("strong", {}, batch.hold ? rec.name + "先下锅 " + batch.first + " 份" : rec.name + "先备 " + rec.suggest + " 份"),
-      h("p", {}, (rec.sameWeekday ? "按最近几个星期" + "日一二三四五六"[rec.weekday] + "，不跟别的日子混算。" : "同星期的记录还不够两条，先用最近几天。") + "平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + hold + caution + (half ? half : "")),
+      h("p", {}, (rec.sameService ? "只看" + serviceLabel(rec.service) + "。" : "") + (rec.sameWeekday ? "按最近几个星期" + "日一二三四五六"[rec.weekday] + "，不跟别的日子混算。" : "同星期的记录还不够两条，先用最近几天。") + (todayService() && !rec.sameService ? "这一市还不够两条，先和另一市放在一起。" : "") + "平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + hold + caution + (half ? half : "")),
     ]);
   }
 
   function renderPrep() {
     const target = shiftISO(1);
+    const planService = state.planService === "lunch" || state.planService === "dinner" ? state.planService : "";
     const expected = calc.clampCount(state.expectedCovers);
-    const crowd = calc.averageCovers(state.days, target);
-    const plan = calc.prepPlan(state.dishes, state.days, target).map(function (row) {
+    const crowd = calc.averageCovers(state.days, target, planService);
+    const plan = calc.prepPlan(state.dishes, state.days, target, planService).map(function (row) {
       if (!expected || !crowd || row.buildTo == null) return row;
       const buildTo = calc.scaleToCovers(row.buildTo, row.soldOutFloor, crowd.avg, expected);
       const batch = calc.splitBatch(buildTo);
@@ -228,6 +256,23 @@
       h("p", { class: "lede" }, "这张单给后厨照着做。先做的现在下锅，留下的等出餐过半再补。份数已经躲开卖光的托底，也没有把做坏和退菜算成卖不动。"),
     ]);
     if (state.sample) wrap.append(sampleBanner());
+    const servicePick = h("select", { class: "reason", "aria-label": "这张备料单是哪一市" }, [
+      h("option", { value: "" }, "全天"),
+      h("option", { value: "lunch" }, "午市"),
+      h("option", { value: "dinner" }, "晚市"),
+    ]);
+    servicePick.value = planService;
+    servicePick.addEventListener("change", function () {
+      state.planService = servicePick.value === "lunch" || servicePick.value === "dinner" ? servicePick.value : "";
+      save();
+      render();
+    });
+    const pool = calc.historyPool(state.days, target, planService);
+    wrap.append(h("div", { class: "card" }, [
+      h("h2", {}, "这张单是哪一市"),
+      servicePick,
+      h("p", { class: "note" }, planService && !pool.sameService ? "这一市还不够两条，先和另一市放在一起。" : "午市、晚市各看各的。不选就按全天。"),
+    ]));
     const expectInput = h("input", { class: "num", type: "text", inputmode: "numeric", "aria-label": "明天预计几位", value: state.expectedCovers ? String(state.expectedCovers) : "" });
     expectInput.addEventListener("change", function () {
       state.expectedCovers = calc.clampCount(expectInput.value);
@@ -251,7 +296,7 @@
         ? "同星期做多了将近一半。先从菜单拿下来，卖光过的日子不会走到这一步。"
         : row.buildTo == null
         ? "还没有销量"
-        : (row.sameWeekday ? "星期" + "日一二三四五六"[row.weekday] : "最近几天") + " · " + row.samples + " 天" + (row.soldOutFloor ? (row.soldOutEarly ? " · 卖光得早，至少 " + row.soldOutFloor + " 份" : " · 卖光过，不低于 " + row.soldOutFloor + " 份") : "") + (row.coversScaled ? " · 已按明天人数调整" : "") + (half ? " · " + half : "");
+        : (row.sameService ? serviceLabel(row.service) + " · " : "") + (row.sameWeekday ? "星期" + "日一二三四五六"[row.weekday] : "最近几天") + " · " + row.samples + " 天" + (row.soldOutFloor ? (row.soldOutEarly ? " · 卖光得早，至少 " + row.soldOutFloor + " 份" : " · 卖光过，不低于 " + row.soldOutFloor + " 份") : "") + (row.coversScaled ? " · 已按明天人数调整" : "") + (half ? " · " + half : "");
       list.append(h("li", {}, [
         h("span", {}, String(index + 1)),
         h("span", {}, [row.name, h("span", { class: "note" }, " " + basis)]),
@@ -408,6 +453,32 @@
     });
   }
 
+  function dayWorthKeeping(entry) {
+    if (!entry) return false;
+    if (entry.outlier) return true;
+    if (entry.service === "lunch" || entry.service === "dinner") return true;
+    if (calc.coversOf(entry) > 0) return true;
+    return (entry.lines || []).some(function (line) { return line.prepped > 0; });
+  }
+
+  function setDayService(name) {
+    const service = name === "lunch" || name === "dinner" ? name : "";
+    const lines = todayLines();
+    writeToday(lines);
+    const date = todayISO();
+    let entry = state.days.find(function (day) { return day.date === date; });
+    if (!entry && service) {
+      entry = { date: date, covers: 0, service: service, lines: [] };
+      state.days.push(entry);
+    }
+    if (entry) entry.service = service;
+    if (entry && !dayWorthKeeping(entry)) {
+      state.days = state.days.filter(function (day) { return day.date !== date; });
+    }
+    save();
+    render();
+  }
+
   function setOutlier(on) {
     const lines = todayLines();
     writeToday(lines);
@@ -418,7 +489,7 @@
       state.days.push(entry);
     }
     if (entry) entry.outlier = Boolean(on);
-    if (entry && !entry.outlier && !calc.coversOf(entry) && !(entry.lines || []).some(function (line) { return line.prepped > 0; })) {
+    if (entry && !dayWorthKeeping(entry)) {
       state.days = state.days.filter(function (day) { return day.date !== date; });
     }
     save();
@@ -436,7 +507,7 @@
       state.days.push(entry);
     }
     if (entry) entry.covers = covers;
-    if (entry && !entry.outlier && !entry.covers && !(entry.lines || []).some(function (line) { return line.prepped > 0; })) {
+    if (entry && !dayWorthKeeping(entry)) {
       state.days = state.days.filter(function (day) { return day.date !== date; });
     }
     save();
@@ -450,6 +521,7 @@
       date: date,
       covers: previous ? calc.coversOf(previous) : 0,
       outlier: Boolean(previous && previous.outlier),
+      service: calc.serviceOf(previous),
       lines: lines.map(function (line) {
         const prepped = calc.clampCount(line.prepped);
         const wasted = Math.min(calc.clampCount(line.wasted), prepped);
@@ -469,7 +541,7 @@
       }),
     };
     state.days = state.days.filter(function (day) { return day.date !== date; });
-    if (entry.outlier || entry.covers > 0 || entry.lines.some(function (line) { return line.prepped > 0; })) state.days.push(entry);
+    if (dayWorthKeeping(entry)) state.days.push(entry);
     save();
   }
 
@@ -653,6 +725,7 @@
       if (!data || data.version !== 1 || !Array.isArray(data.dishes) || !Array.isArray(data.days)) return blank();
       data.sample = Boolean(data.sample);
       data.expectedCovers = calc.clampCount(data.expectedCovers);
+      data.planService = data.planService === "lunch" || data.planService === "dinner" ? data.planService : "";
       if (!data.service || data.service.date !== todayISO()) data.service = null;
       else {
         data.service = {

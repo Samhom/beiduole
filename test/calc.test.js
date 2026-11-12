@@ -104,6 +104,19 @@ const withBanquet = monday.concat([banquet]);
 assert.strictEqual(calc.recommend([beef], withBanquet, "2026-11-30").suggest, 12);
 assert.strictEqual(calc.dayTotal(banquet.lines), 240);
 assert.strictEqual(calc.historyPool(withBanquet, "2026-11-30").rows.some(function (day) { return day.date === "2026-11-23"; }), false);
+const meals = [
+  day("2026-11-02", [line("beef", "牛肉面", 8, 20, 2)]),
+  day("2026-11-09", [line("beef", "牛肉面", 8, 20, 2)]),
+  day("2026-11-16", [line("beef", "牛肉面", 8, 20, 8)]),
+  day("2026-11-23", [line("beef", "牛肉面", 8, 20, 8)]),
+];
+meals[0].service = "lunch";
+meals[1].service = "lunch";
+meals[2].service = "dinner";
+meals[3].service = "dinner";
+assert.strictEqual(calc.recommend([beef], meals, "2026-11-30", "dinner").suggest, 12);
+assert.strictEqual(calc.recommend([beef], meals, "2026-11-30", "dinner").sameService, true);
+assert.strictEqual(calc.recommend([beef], meals, "2026-11-30", "lunch"), null);
 
 const ruined = [
   day("2026-11-01", [line("beef", "牛肉面", 8, 20, 8)]),
