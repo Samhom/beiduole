@@ -163,5 +163,12 @@ assert.strictEqual(calc.keptOf(unsafe), 0);
 assert.strictEqual(calc.lineLoss(unsafe), 48);
 assert.strictEqual(calc.halfPrice(8), 5.6);
 assert.strictEqual(calc.halfPrice(0), 0);
+assert.deepStrictEqual(calc.freshCook(14, 4), { carry: 4, use: 4, fresh: 10, first: 7, hold: 3 });
+assert.deepStrictEqual(calc.freshCook(14, 0), { carry: 0, use: 0, fresh: 14, first: 10, hold: 4 });
+assert.strictEqual(calc.freshCook(null, 4).fresh, null);
+const carryDays = [day("2026-11-15", [line("beef", "牛肉面", 8, 20, 6)])];
+carryDays[0].lines[0].kept = 4;
+assert.strictEqual(calc.carryFrom(carryDays, "beef", "2026-11-16"), 4);
+assert.strictEqual(calc.carryFrom(carryDays, "beef", "2026-11-17"), 0);
 
 console.log("calc ok");

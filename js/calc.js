@@ -159,6 +159,34 @@
     return best;
   }
 
+  function shiftDate(iso, delta) {
+    const parts = String(iso || "").split("-").map(Number);
+    if (parts.length < 3 || !parts[0]) return "";
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+    date.setDate(date.getDate() + delta);
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return date.getFullYear() + "-" + month + "-" + day;
+  }
+
+  function carryFrom(days, dishId, targetDate) {
+    const prev = shiftDate(targetDate, -1);
+    const day = (days || []).find(function (item) { return item.date === prev; });
+    if (!day) return 0;
+    const line = (day.lines || []).find(function (item) { return item.dishId === dishId; });
+    return keptOf(line);
+  }
+
+  function freshCook(buildTo, carry) {
+    const held = clampCount(carry);
+    if (buildTo == null) return { carry: held, use: 0, fresh: null, first: 0, hold: 0 };
+    const target = clampCount(buildTo);
+    const use = Math.min(held, target);
+    const fresh = target - use;
+    const batch = splitBatch(fresh);
+    return { carry: held, use: use, fresh: fresh, first: batch.first, hold: batch.hold };
+  }
+
   function splitBatch(count) {
     const n = clampCount(count);
     if (n <= 2) return { first: n, hold: 0 };
@@ -340,6 +368,9 @@
     prepPlan: prepPlan,
     shouldPause: shouldPause,
     splitBatch: splitBatch,
+    shiftDate: shiftDate,
+    carryFrom: carryFrom,
+    freshCook: freshCook,
     rank: rank,
     projection: projection,
     pitch: pitch,

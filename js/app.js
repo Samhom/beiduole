@@ -216,24 +216,29 @@
       if (recorded >= 2 && calc.hasSoldOut(state.days)) text += "卖光的日子没有拿来证明该少备。";
       return h("aside", { class: "card advice", id: "advice" }, [h("h2", {}, "明天先不动"), h("p", {}, text)]);
     }
-    const batch = calc.splitBatch(rec.suggest);
     const tomorrow = calc.prepPlan(state.dishes, state.days, shiftISO(1), todayService()).find(function (row) { return row.dishId === rec.dishId; });
     if (tomorrow && tomorrow.pause) {
+      const carried = calc.carryFrom(state.days, rec.dishId, shiftISO(1));
       return h("aside", { class: "card advice", id: "advice" }, [
         h("p", { class: "kicker" }, "明天只改这一道"),
         h("strong", {}, rec.name + "明天先不上"),
-        h("p", {}, "同一个星期几，做多了倒掉的份数将近一半。少备已经不够，先从菜单拿下来。卖光过的日子不会这样处理。"),
+        h("p", {}, "同一个星期几，做多了倒掉的份数将近一半。少备已经不够，先从菜单拿下来。卖光过的日子不会这样处理。" + (carried ? "昨晚留下 " + carried + " 份，只卖今天，不要新做。" : "")),
       ]);
     }
+    const carried = calc.carryFrom(state.days, rec.dishId, shiftISO(1));
+    const cook = calc.freshCook(rec.suggest, carried);
     const caution = rec.cautious
       ? "大约每天少倒 " + formatYuan(rec.savedPerDay) + " 元。没有一步砍到平均销量，先少这一截，卖得动再降。"
       : "若接下来的销量接近这几天的平均，大约每天少倒 " + formatYuan(rec.savedPerDay) + " 元。先试一天。";
-    const hold = batch.hold ? "留下的 " + batch.hold + " 份先别下锅，出餐过半还在卖再补。" : "";
+    const hold = cook.hold ? "新做的先下锅 " + cook.first + " 份，留下 " + cook.hold + " 份等出餐过半再补。" : "";
     const dish = state.dishes.find(function (item) { return item.id === rec.dishId; });
     const half = halfTalk(dish);
+    const lead = cook.use
+      ? (cook.fresh ? rec.name + "先用留下的 " + cook.use + " 份，再新做 " + cook.first + " 份" : rec.name + "先用昨晚留下的 " + cook.use + " 份，不用新做")
+      : (cook.hold ? rec.name + "先下锅 " + cook.first + " 份" : rec.name + "先备 " + rec.suggest + " 份");
     return h("aside", { class: "card advice", id: "advice" }, [
       h("p", { class: "kicker" }, "明天只改这一道"),
-      h("strong", {}, batch.hold ? rec.name + "先下锅 " + batch.first + " 份" : rec.name + "先备 " + rec.suggest + " 份"),
+      h("strong", {}, lead),
       h("p", {}, (rec.sameService ? "只看" + serviceLabel(rec.service) + "。" : "") + (rec.sameWeekday ? "按最近几个星期" + "日一二三四五六"[rec.weekday] + "，不跟别的日子混算。" : "同星期的记录还不够两条，先用最近几天。") + (todayService() && !rec.sameService ? "这一市还不够两条，先和另一市放在一起。" : "") + "平均卖掉 " + trimNum(rec.avgSold) + " 份，平均备了 " + trimNum(rec.avgPrepped) + " 份。比例更高的便宜菜先放着。" + (rec.soldOutFloor ? "卖光的日子按当时备货托底。" : "") + hold + caution + (half ? half : "")),
     ]);
   }
@@ -292,6 +297,17 @@
     plan.forEach(function (row, index) {
       const dish = state.dishes.find(function (item) { return item.id === row.dishId; });
       const half = halfTalk(dish);
+      const carried = calc.carryFrom(state.days, row.dishId, target);
+      const cook = row.buildTo == null || row.pause ? null : calc.freshCook(row.buildTo, carried);
+      const amount = row.pause
+        ? "明天先不上" + (carried ? " · 留下的 " + carried + " 份只卖今天" : "")
+        : row.buildTo == null
+          ? "—"
+          : cook.use && cook.fresh
+            ? "先用 " + cook.use + " · 新做 " + cook.first + (cook.hold ? " · 留 " + cook.hold : "")
+            : cook.use
+              ? "先用留下的 " + cook.use + " 份"
+              : (row.hold ? "先做 " + row.first + " · 留 " + row.hold : row.buildTo + " 份");
       const basis = row.pause
         ? "同星期做多了将近一半。先从菜单拿下来，卖光过的日子不会走到这一步。"
         : row.buildTo == null
@@ -300,7 +316,7 @@
       list.append(h("li", {}, [
         h("span", {}, String(index + 1)),
         h("span", {}, [row.name, h("span", { class: "note" }, " " + basis)]),
-        h("b", {}, row.pause ? "明天先不上" : row.buildTo == null ? "—" : (row.hold ? "先做 " + row.first + " · 留 " + row.hold : row.buildTo + " 份")),
+        h("b", {}, amount),
       ]));
     });
     wrap.append(h("div", { class: "card" }, list));
