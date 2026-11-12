@@ -39,8 +39,14 @@
     return Math.min(clampCount(line.kept), wastedOf(line));
   }
 
+  function staffOf(line) {
+    if (!line || (line.reason && line.reason !== "over")) return 0;
+    const room = wastedOf(line) - keptOf(line);
+    return Math.min(clampCount(line.staff), Math.max(0, room));
+  }
+
   function thrownOf(line) {
-    return wastedOf(line) - keptOf(line);
+    return wastedOf(line) - keptOf(line) - staffOf(line);
   }
 
   function isSoldOut(line) {
@@ -352,6 +358,7 @@
     soldOutFloorOf: soldOutFloorOf,
     overprepWaste: overprepWaste,
     keptOf: keptOf,
+    staffOf: staffOf,
     thrownOf: thrownOf,
     hasSoldOut: hasSoldOut,
     weekdayOf: weekdayOf,

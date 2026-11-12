@@ -170,5 +170,12 @@ const carryDays = [day("2026-11-15", [line("beef", "牛肉面", 8, 20, 6)])];
 carryDays[0].lines[0].kept = 4;
 assert.strictEqual(calc.carryFrom(carryDays, "beef", "2026-11-16"), 4);
 assert.strictEqual(calc.carryFrom(carryDays, "beef", "2026-11-17"), 0);
+const staffed = { prepped: 20, wasted: 6, cost: 8, reason: "over", kept: 2, staff: 2 };
+assert.strictEqual(calc.lineLoss(staffed), 16);
+assert.strictEqual(calc.overprepWaste(staffed), 6);
+assert.strictEqual(calc.staffOf({ prepped: 20, wasted: 6, cost: 8, reason: "ruined", staff: 4 }), 0);
+const staffDays = [day("2026-11-15", [line("beef", "牛肉面", 8, 20, 6)])];
+staffDays[0].lines[0].staff = 4;
+assert.strictEqual(calc.carryFrom(staffDays, "beef", "2026-11-16"), 0);
 
 console.log("calc ok");

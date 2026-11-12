@@ -164,10 +164,22 @@
         line.soldOut ? when : null,
         line.wasted > 0 ? reasonSelect(line) : null,
         line.wasted > 0 && line.reason !== "ruined" && line.reason !== "returned" ? keptStepper(line) : null,
+        line.wasted > 0 && line.reason !== "ruined" && line.reason !== "returned" ? staffStepper(line) : null,
       ]),
       stepper("备了", prepped, function (delta) { bump(line.dishId, "prepped", delta); }, line.prepped <= 0, line.prepped >= 999),
       stepper("倒掉", wasted, function (delta) { bump(line.dishId, "wasted", delta); }, line.wasted <= 0, line.wasted >= line.prepped),
       lossNode,
+    ]);
+  }
+
+  function staffStepper(line) {
+    const room = Math.max(0, line.wasted - (line.kept || 0));
+    const input = h("input", { type: "text", inputmode: "numeric", "aria-label": line.name + "员工餐", value: String(line.staff || 0) });
+    input.addEventListener("input", function () { applyCount(line.dishId, "staff", input.value); });
+    input.addEventListener("change", commitCounts);
+    return h("div", { class: "kept" }, [
+      stepper("员工餐", input, function (delta) { bump(line.dishId, "staff", delta); }, (line.staff || 0) <= 0, (line.staff || 0) >= room),
+      h("p", { class: "note" }, "今天吃掉。不算客人买走，也不留到明天。做坏和退菜不能给。"),
     ]);
   }
 
@@ -465,6 +477,7 @@
         soldOutWhen: found && found.soldOutWhen === "early" ? "early" : "",
         reason: found && found.reason === "ruined" || found && found.reason === "returned" ? found.reason : "over",
         kept: found ? found.kept : 0,
+        staff: found ? found.staff : 0,
       };
     });
   }
@@ -543,6 +556,7 @@
         const wasted = Math.min(calc.clampCount(line.wasted), prepped);
         const reason = wasted > 0 && (line.reason === "ruined" || line.reason === "returned") ? line.reason : "over";
         const soldOut = Boolean(line.soldOut) && wasted === 0 && prepped > 0;
+        const kept = reason === "over" ? Math.min(calc.clampCount(line.kept), wasted) : 0;
         return {
           dishId: line.dishId,
           name: line.name,
@@ -552,7 +566,8 @@
           soldOut: soldOut,
           soldOutWhen: soldOut && line.soldOutWhen === "early" ? "early" : "",
           reason: reason,
-          kept: reason === "over" ? Math.min(calc.clampCount(line.kept), wasted) : 0,
+          kept: kept,
+          staff: reason === "over" ? Math.min(calc.clampCount(line.staff), wasted - kept) : 0,
         };
       }),
     };
@@ -567,6 +582,7 @@
     line[key] = calc.clampCount(raw);
     if (line.wasted > line.prepped) line.wasted = line.prepped;
     if (line.kept > line.wasted) line.kept = line.wasted;
+    if ((line.staff || 0) > line.wasted - (line.kept || 0)) line.staff = Math.max(0, line.wasted - (line.kept || 0));
     if (line.wasted > 0 || line.prepped <= 0) line.soldOut = false;
     writeToday(lines);
     const total = calc.dayTotal(lines);
@@ -594,11 +610,13 @@
     const next = calc.clampCount(line[key]) + delta;
     if (key === "wasted") line.wasted = Math.min(Math.max(0, next), line.prepped);
     else if (key === "kept") line.kept = Math.min(Math.max(0, next), line.wasted);
+    else if (key === "staff") line.staff = Math.min(Math.max(0, next), Math.max(0, line.wasted - (line.kept || 0)));
     else {
       line.prepped = Math.max(0, next);
       if (line.wasted > line.prepped) line.wasted = line.prepped;
     }
     if (line.kept > line.wasted) line.kept = line.wasted;
+    if ((line.staff || 0) > line.wasted - (line.kept || 0)) line.staff = Math.max(0, line.wasted - (line.kept || 0));
     if (line.wasted > 0 || line.prepped <= 0) line.soldOut = false;
     writeToday(lines);
     render();
