@@ -47,6 +47,13 @@
     return Boolean(line && line.soldOut) && wastedOf(line) === 0 && clampCount(line.prepped) > 0;
   }
 
+  function soldOutFloorOf(line) {
+    if (!isSoldOut(line)) return 0;
+    const prep = clampCount(line.prepped);
+    if (line.soldOutWhen === "early") return Math.min(999, Math.ceil(prep * 1.1));
+    return prep;
+  }
+
   function hasSoldOut(days) {
     return (days || []).some(function (day) {
       return (day.lines || []).some(isSoldOut);
@@ -100,7 +107,7 @@
         });
         if (!line || clampCount(line.prepped) <= 0) return;
         if (isSoldOut(line)) {
-          soldOutFloor = Math.max(soldOutFloor, clampCount(line.prepped));
+          soldOutFloor = Math.max(soldOutFloor, soldOutFloorOf(line));
           return;
         }
         used += 1;
@@ -155,11 +162,16 @@
       let sold = 0;
       let used = 0;
       let soldOutFloor = 0;
+      let soldOutEarly = false;
       pool.rows.forEach(function (day) {
         const line = (day.lines || []).find(function (item) { return item.dishId === dish.id; });
         if (!line || clampCount(line.prepped) <= 0) return;
         if (isSoldOut(line)) {
-          soldOutFloor = Math.max(soldOutFloor, clampCount(line.prepped));
+          const floor = soldOutFloorOf(line);
+          if (floor >= soldOutFloor) {
+            soldOutFloor = floor;
+            soldOutEarly = line.soldOutWhen === "early";
+          }
           return;
         }
         const made = clampCount(line.prepped);
@@ -168,7 +180,7 @@
         sold += made - overprepWaste(line);
       });
       if (!used && !soldOutFloor) {
-        return { dishId: dish.id, name: dish.name, buildTo: null, first: 0, hold: 0, pause: false, sameWeekday: pool.sameWeekday, weekday: pool.weekday, samples: 0, soldOutFloor: 0 };
+        return { dishId: dish.id, name: dish.name, buildTo: null, first: 0, hold: 0, pause: false, sameWeekday: pool.sameWeekday, weekday: pool.weekday, samples: 0, soldOutFloor: 0, soldOutEarly: false };
       }
       const over = prepped - sold;
       if (shouldPause(prepped, over, used, soldOutFloor)) {
@@ -183,6 +195,7 @@
           weekday: pool.weekday,
           samples: used,
           soldOutFloor: 0,
+          soldOutEarly: false,
         };
       }
       const avgSold = used ? sold / used : soldOutFloor;
@@ -202,6 +215,7 @@
         weekday: pool.weekday,
         samples: used,
         soldOutFloor: soldOutFloor,
+        soldOutEarly: soldOutEarly,
         pause: false,
       };
     });
@@ -286,6 +300,7 @@
     halfPrice: halfPrice,
     wastedOf: wastedOf,
     isSoldOut: isSoldOut,
+    soldOutFloorOf: soldOutFloorOf,
     overprepWaste: overprepWaste,
     keptOf: keptOf,
     thrownOf: thrownOf,

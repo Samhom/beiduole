@@ -123,11 +123,18 @@
     const sold = h("input", { type: "checkbox", "aria-label": line.name + "卖光了" });
     sold.checked = Boolean(line.soldOut);
     sold.addEventListener("change", function () { setSoldOut(line.dishId, sold.checked); });
+    const when = h("select", { class: "reason", "aria-label": line.name + "什么时候卖光" }, [
+      h("option", { value: "close" }, "临收才光"),
+      h("option", { value: "early" }, "卖光得早"),
+    ]);
+    when.value = line.soldOutWhen === "early" ? "early" : "close";
+    when.addEventListener("change", function () { setSoldOutWhen(line.dishId, when.value); });
     return h("article", { class: "line" }, [
       h("div", { class: "who" }, [
         h("h3", {}, line.name),
         h("p", { class: "cost" }, "每份 " + formatYuan(line.cost) + " 元"),
         h("label", { class: "soldout" }, [sold, "卖光了"]),
+        line.soldOut ? when : null,
         line.wasted > 0 ? reasonSelect(line) : null,
         line.wasted > 0 && line.reason !== "ruined" && line.reason !== "returned" ? keptStepper(line) : null,
       ]),
@@ -244,7 +251,7 @@
         ? "同星期做多了将近一半。先从菜单拿下来，卖光过的日子不会走到这一步。"
         : row.buildTo == null
         ? "还没有销量"
-        : (row.sameWeekday ? "星期" + "日一二三四五六"[row.weekday] : "最近几天") + " · " + row.samples + " 天" + (row.soldOutFloor ? " · 卖光过，不低于 " + row.soldOutFloor + " 份" : "") + (row.coversScaled ? " · 已按明天人数调整" : "") + (half ? " · " + half : "");
+        : (row.sameWeekday ? "星期" + "日一二三四五六"[row.weekday] : "最近几天") + " · " + row.samples + " 天" + (row.soldOutFloor ? (row.soldOutEarly ? " · 卖光得早，至少 " + row.soldOutFloor + " 份" : " · 卖光过，不低于 " + row.soldOutFloor + " 份") : "") + (row.coversScaled ? " · 已按明天人数调整" : "") + (half ? " · " + half : "");
       list.append(h("li", {}, [
         h("span", {}, String(index + 1)),
         h("span", {}, [row.name, h("span", { class: "note" }, " " + basis)]),
@@ -394,6 +401,7 @@
         prepped: found ? found.prepped : 0,
         wasted: found ? Math.min(found.wasted, found.prepped) : 0,
         soldOut: Boolean(found && found.soldOut && found.wasted === 0 && found.prepped > 0),
+        soldOutWhen: found && found.soldOutWhen === "early" ? "early" : "",
         reason: found && found.reason === "ruined" || found && found.reason === "returned" ? found.reason : "over",
         kept: found ? found.kept : 0,
       };
@@ -446,13 +454,15 @@
         const prepped = calc.clampCount(line.prepped);
         const wasted = Math.min(calc.clampCount(line.wasted), prepped);
         const reason = wasted > 0 && (line.reason === "ruined" || line.reason === "returned") ? line.reason : "over";
+        const soldOut = Boolean(line.soldOut) && wasted === 0 && prepped > 0;
         return {
           dishId: line.dishId,
           name: line.name,
           cost: calc.clampCost(line.cost),
           prepped: prepped,
           wasted: wasted,
-          soldOut: Boolean(line.soldOut) && wasted === 0 && prepped > 0,
+          soldOut: soldOut,
+          soldOutWhen: soldOut && line.soldOutWhen === "early" ? "early" : "",
           reason: reason,
           kept: reason === "over" ? Math.min(calc.clampCount(line.kept), wasted) : 0,
         };
@@ -527,6 +537,17 @@
     const line = lines.find(function (item) { return item.dishId === dishId; });
     if (!line) return;
     line.reason = reason;
+    writeToday(lines);
+    render();
+  }
+
+  function setSoldOutWhen(dishId, when) {
+    const lines = todayLines();
+    const line = lines.find(function (item) { return item.dishId === dishId; });
+    if (!line || line.prepped <= 0) return;
+    line.soldOut = true;
+    line.wasted = 0;
+    line.soldOutWhen = when === "early" ? "early" : "";
     writeToday(lines);
     render();
   }

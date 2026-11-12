@@ -73,7 +73,19 @@ const floored = [
 floored[0].lines[0].soldOut = true;
 const flooredRec = calc.recommend([beef], floored);
 assert.strictEqual(flooredRec.suggest, 12);
-assert.strictEqual(flooredRec.soldOutFloor, 10);
+assert.strictEqual(calc.soldOutFloorOf({ soldOut: true, prepped: 20, wasted: 0 }), 20);
+assert.strictEqual(calc.soldOutFloorOf({ soldOut: true, prepped: 20, wasted: 0, soldOutWhen: "early" }), 22);
+const earlyDays = [
+  day("2026-11-02", [line("beef", "牛肉面", 8, 20, 0)]),
+  day("2026-11-09", [line("beef", "牛肉面", 8, 20, 8)]),
+  day("2026-11-16", [line("beef", "牛肉面", 8, 20, 8)]),
+];
+earlyDays[0].lines[0].soldOut = true;
+earlyDays[0].lines[0].soldOutWhen = "early";
+const earlySheet = calc.prepPlan([beef], earlyDays, "2026-11-23");
+assert.strictEqual(earlySheet[0].soldOutFloor, 22);
+assert.strictEqual(earlySheet[0].buildTo, 22);
+assert.strictEqual(earlySheet[0].soldOutEarly, true);
 
 const monday = [
   day("2026-11-02", [line("beef", "牛肉面", 8, 20, 8)]),
