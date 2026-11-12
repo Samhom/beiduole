@@ -69,8 +69,12 @@
     return new Date(parts[0], parts[1] - 1, parts[2]).getDay();
   }
 
+  function isOutlier(day) {
+    return Boolean(day && day.outlier);
+  }
+
   function historyPool(days, targetDate) {
-    const sorted = (days || []).slice().sort(function (a, b) {
+    const sorted = (days || []).filter(function (day) { return !isOutlier(day); }).slice().sort(function (a, b) {
       return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
     });
     if (targetDate) {
@@ -287,6 +291,7 @@
     thrownOf: thrownOf,
     hasSoldOut: hasSoldOut,
     weekdayOf: weekdayOf,
+    isOutlier: isOutlier,
     historyPool: historyPool,
     coversOf: coversOf,
     averageCovers: averageCovers,

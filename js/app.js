@@ -55,7 +55,7 @@
     );
     const list = h("div", { class: "lines card" });
     draft.forEach(function (line) { list.append(lineRow(line)); });
-    wrap.append(list, coversCard(total), halfwayCard(), adviceCard());
+    wrap.append(list, coversCard(total), outlierCard(), halfwayCard(), adviceCard());
     return wrap;
   }
 
@@ -83,6 +83,18 @@
       h("h2", {}, "出餐过半"),
       h("div", { class: "add-row" }, [expected, h("span", {}, "位预计"), now, h("span", {}, "位已到")]),
       h("p", { class: "note" }, verdict),
+    ]);
+  }
+
+  function outlierCard() {
+    const saved = state.days.find(function (day) { return day.date === todayISO(); });
+    const box = h("input", { type: "checkbox", "aria-label": "今天不作参考" });
+    box.checked = Boolean(saved && saved.outlier);
+    box.addEventListener("change", function () { setOutlier(box.checked); });
+    return h("aside", { class: "card" }, [
+      h("h2", {}, "今天不作参考"),
+      h("label", { class: "soldout" }, [box, "包场、停业或极端天气"]),
+      h("p", { class: "note" }, "钱还记在账上。这种日子不拿去改明天备多少。"),
     ]);
   }
 
@@ -313,7 +325,7 @@
       const total = calc.dayTotal(day.lines);
       const width = total > 0 && max > 0 ? Math.max(4, Math.round(total / max * 100)) : 0;
       bars.append(h("div", { class: "bar-row" }, [
-        h("span", {}, day.date.slice(5)),
+        h("span", {}, day.date.slice(5) + (day.outlier ? " 不作参考" : "")),
         h("div", { class: "track" }, h("i", { style: "width:" + width + "%" })),
         h("em", {}, formatYuan(total)),
       ]));
@@ -388,6 +400,23 @@
     });
   }
 
+  function setOutlier(on) {
+    const lines = todayLines();
+    writeToday(lines);
+    const date = todayISO();
+    let entry = state.days.find(function (day) { return day.date === date; });
+    if (!entry && on) {
+      entry = { date: date, covers: 0, outlier: true, lines: [] };
+      state.days.push(entry);
+    }
+    if (entry) entry.outlier = Boolean(on);
+    if (entry && !entry.outlier && !calc.coversOf(entry) && !(entry.lines || []).some(function (line) { return line.prepped > 0; })) {
+      state.days = state.days.filter(function (day) { return day.date !== date; });
+    }
+    save();
+    render();
+  }
+
   function setCovers(raw) {
     const lines = todayLines();
     writeToday(lines);
@@ -399,7 +428,7 @@
       state.days.push(entry);
     }
     if (entry) entry.covers = covers;
-    if (entry && !entry.covers && !(entry.lines || []).some(function (line) { return line.prepped > 0; })) {
+    if (entry && !entry.outlier && !entry.covers && !(entry.lines || []).some(function (line) { return line.prepped > 0; })) {
       state.days = state.days.filter(function (day) { return day.date !== date; });
     }
     save();
@@ -412,6 +441,7 @@
     const entry = {
       date: date,
       covers: previous ? calc.coversOf(previous) : 0,
+      outlier: Boolean(previous && previous.outlier),
       lines: lines.map(function (line) {
         const prepped = calc.clampCount(line.prepped);
         const wasted = Math.min(calc.clampCount(line.wasted), prepped);
@@ -429,7 +459,7 @@
       }),
     };
     state.days = state.days.filter(function (day) { return day.date !== date; });
-    if (entry.covers > 0 || entry.lines.some(function (line) { return line.prepped > 0; })) state.days.push(entry);
+    if (entry.outlier || entry.covers > 0 || entry.lines.some(function (line) { return line.prepped > 0; })) state.days.push(entry);
     save();
   }
 

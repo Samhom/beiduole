@@ -86,6 +86,12 @@ assert.strictEqual(mondayRec.sameWeekday, true);
 assert.strictEqual(mondayRec.weekday, 1);
 assert.strictEqual(mondayRec.suggest, 12);
 assert.strictEqual(calc.recommend([beef], monday, "2026-11-19"), null);
+const banquet = day("2026-11-23", [line("beef", "牛肉面", 8, 40, 30)]);
+banquet.outlier = true;
+const withBanquet = monday.concat([banquet]);
+assert.strictEqual(calc.recommend([beef], withBanquet, "2026-11-30").suggest, 12);
+assert.strictEqual(calc.dayTotal(banquet.lines), 240);
+assert.strictEqual(calc.historyPool(withBanquet, "2026-11-30").rows.some(function (day) { return day.date === "2026-11-23"; }), false);
 
 const ruined = [
   day("2026-11-01", [line("beef", "牛肉面", 8, 20, 8)]),
